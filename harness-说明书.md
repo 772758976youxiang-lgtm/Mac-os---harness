@@ -96,9 +96,9 @@ python gateway.py                                      # 微信群聊 → harnes
 > **完整性保证**：本仓库（+`dsh-channel-im` 仓库）包含全部功能；clone + install 后=完整环境，无“本地才知道”的隐性步骤。
 
 1. Node ≥ 18（改核心源码需 22.19/24 + pnpm）；
-2. `git clone <你的私有仓库> deepseek-harness && cd deepseek-harness && git pull`（代码）；
+2. **一次 clone 拿全部**：`git clone git@github.com:772758976youxiang-lgtm/Mac-os---harness.git`（内含 harness 源码 + 本说明书 + `dsh-channel-im/` 完整扩展）；
 3. 运行版：`npm i -g @deepseek-ai/dsh`（或用源码 `pnpm install`）→ `npx dsh web`（3080）；
-4. `git clone <你的仓库> dsh-channel-im && bash dsh-channel-im/install.sh`（装桥接到 `~/.dsh-channel-im` + 技能 + 预设 + 「连接」页/「外部打开」补丁）；
+4. `bash dsh-channel-im/install.sh`（已在克隆内：装桥接到 `~/.dsh-channel-im` + 技能 + 预设 + 「连接」页/「外部打开」补丁）；
 5. 通道：机器人给凭证 / 真人扫码（`node auth.mjs login`）/ 企微 Bot ID+Secret / 微信群聊按「Windows 网关」文档；
 6. 验证：浏览器 3080 → 设置「连接」→ 钉钉发消息。
 
