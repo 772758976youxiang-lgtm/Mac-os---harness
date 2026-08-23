@@ -1,9 +1,0 @@
-# 依赖与构建产物
-node_modules/
-*.log
-.DS_Store
-
-# 敏感配置（含凭证/token，绝不入库）
-config.json
-examples/*/config.json
-.examples-config/

@@ -32,13 +32,7 @@ IM 通道扩展（dsh-channel-im / server.mjs 桥接，管理 API 5175）
 |---|---|
 | `deepseek-harness/` | **DSH 官方源码克隆**（本机私有镜像；`git pull` 可跟上游） |
 | `deepseek-harness/harness-说明书.md` | 本文 |
-| `dsh-channel-im/` | **自研 IM 通道扩展源码**（可独立 clone/上传私有仓库） |
-| `dsh-channel-im/server.mjs` | 桥接（stream+dws+企微预留；管理API 5175；热加载；看门狗；状态文件；工作区自愈） |
-| `dsh-channel-im/auth.mjs` | 钉钉数字人扫码登录（设备流；登录成功自动注册通道；120s 超时） |
-| `dsh-channel-im/skills/im-channel-setup.md` | 接入钉钉的技能（先问模式；真人=必扫码；删除规则；命名规则） |
-| `dsh-channel-im/presets/robot-assistant/` | 「机器人助手」自定义预设（无命令/无联网，文件+技能+压缩） |
-| `dsh-channel-im/client/` | 「连接」设置页 与 「外部打开」的源码 + 幂等注入脚本 |
-| `dsh-channel-im/examples/` | 演示台：企微(8788) / 微信(8789) / Windows 网关(gateway.py) |
+| `dsh-channel-im`（插件仓库） | **扩展唯一来源**：`git@github.com:772758976youxiang-lgtm/-.git`（桥接/扫码/连接页原生/外部打开/技能×2/预设/微信网关），`dsh plugin install` 安装 |
 | `~/.dsh/` | 用户数据：技能、预设(`.agent-presets`)、工作区等 |
 | `~/.dsh-im-channels.json` | IM 通道配置（唯一事实源；桥接持有；凭证在内，注意保密） |
 | `~/.dsh-im-channels-status.json` | 桥接状态快照（「连接」页 5 秒轮询读取；只读勿手改） |
@@ -60,7 +54,7 @@ cd deepseek-harness && pnpm install && pnpm dev        # 或 npm 安装版：npx
 # 桥接
 cd dsh-channel-im && node server.mjs                   # 通道自动连接（热加载配置）
 # 钉钉数字人扫码
-node dsh-channel-im/auth.mjs login
+node ~/.dsh-channel-im/auth.mjs login   # 或插件包内 auth.mjs
 # 看通道状态
 curl -s http://127.0.0.1:5175/api/channels
 # Windows 微信网关（Windows 机器）
