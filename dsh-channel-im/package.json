@@ -1,0 +1,16 @@
+{
+  "name": "dsh-channel-im",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH 钉钉通道扩展：机器人模式(Stream SDK) + 真人模式(官方 dws CLI)，多机器人/多真人账号、扫码接入、管理API",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "auth": "node auth.mjs login",
+    "auth-status": "node auth.mjs status"
+  },
+  "dependencies": {
+    "dingtalk-stream-sdk-nodejs": "^2.0.4"
+  },
+  "engines": { "node": ">=18" }
+}

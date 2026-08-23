@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>微信群聊机器人演示台（Wechaty + PadLocal）</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--tx:#e6e9f0;--tx2:#8a92a6;--ok:#3fb950;--acc:#4b95f3}
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--tx);font:14px/1.6 -apple-system,"PingFang SC",sans-serif;padding:16px}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:12px;max-width:1100px;margin:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  h1{font-size:16px;margin-bottom:8px} h2{font-size:13px;color:var(--tx2);margin:8px 0 6px}
+  .bar{display:flex;gap:8px;align-items:center;font-size:12px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#555}.dot.ok{background:var(--ok)}.dot.bad{background:#f85149}
+  #feed{height:400px;overflow:auto;font-size:12.5px}
+  .msg{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#12151d}
+  .msg .who{color:var(--tx2);font-size:11px}.msg .txt{white-space:pre-wrap;word-break:break-all;margin-top:4px}
+  #log{height:200px;overflow:auto;font-family:ui-monospace,monospace;font-size:11.5px;color:var(--tx2)}
+  input,select{background:#1c212c;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:6px 8px;margin:2px 0}
+  input{width:100%} button{background:var(--acc);border:none;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--tx2)}
+  .qr{margin:4px auto;display:block}
+</style>
+</head>
+<body>
+<div class="grid">
+  <div>
+    <div class="card">
+      <h1>微信群聊机器人演示台（Wechaty + PadLocal）</h1>
+      <div class="bar">
+        <span class="dot" id="dot"></span><span id="stxt">未连接</span>
+        <span style="flex:1"></span>
+        <button class="ghost" onclick="location.reload()">刷新</button>
+      </div>
+      <div id="qrcard" style="display:none;text-align:center;margin-top:8px">
+        <img id="qr" class="qr" width="200" alt="扫码">
+        <div style="font-size:12px;color:var(--tx2)">请用微信小号扫码登录</div>
+      </div>
+    </div>
+    <div class="card"><h2>消息流</h2><div id="feed"></div></div>
+    <div class="card"><h2>运行日志</h2><div id="log"></div></div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>群聊策略</h2>
+      <select id="roomPolicy" style="width:100%">
+        <option value="at">只回 @我 的群消息</option>
+        <option value="all">回复群内所有消息</option>
+        <option value="off">不回复群消息</option>
+      </select>
+      <h2>Agent 模式</h2>
+      <select id="agentMode" style="width:100%">
+        <option value="echo">echo 回显</option>
+        <option value="openai">openai 兼容</option>
+        <option value="custom">custom HTTP（对接现有 agent）</option>
+      </select>
+      <input id="oBase" placeholder="openai baseUrl"><input id="oKey" placeholder="API Key"><input id="oModel" placeholder="model">
+      <input id="cUrl" placeholder="customUrl（POST → {reply}）">
+      <button onclick="saveCfg()">保存配置</button>
+    </div>
+    <div class="card">
+      <h2>发送测试</h2>
+      <select id="sendKind" style="width:100%"><option value="room">群</option><option value="contact">联系人</option></select>
+      <input id="sendId" placeholder="id（群/联系人的 id，可从消息流复制）">
+      <input id="sendText" placeholder="内容"><button onclick="doSay()">发送</button>
+    </div>
+    <div class="card">
+      <h2>说明</h2>
+      <div style="font-size:12px;color:var(--tx2)">
+        · config.json 填 padlocalToken（padlocal.com 购买）<br>
+        · 用<b>微信小号</b>扫码登录（封号风险自担，勿用主号）<br>
+        · 群里@机器人 → 自动回复（按群聊策略）<br>
+        · 单聊也会自动回复
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+let status={};
+async function boot(){
+  status=await(await fetch("/api/status")).json();
+  render();
+  const st=$("agentMode"); st.value=status.agent?.mode||"echo";
+  $("roomPolicy").value=status.auto?.roomPolicy||"at";
+  $("oBase").value=status.agent?.openai?.baseUrl||"";$("oKey").value=status.agent?.openai?.apiKey||"";$("oModel").value=status.agent?.openai?.model||"";$("cUrl").value=status.agent?.customUrl||"";
+  const evt=new EventSource("/api/stream");
+  evt.onmessage=e=>{const d=JSON.parse(e.data);
+    if(d.type==="status"){status={...status,...d};render();}
+    else if(d.type==="scan"){$("qrcard").style.display="block";$("qr").src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="+encodeURIComponent(d.url);}
+    else if(d.type==="msg")addMsg(d);
+    else if(d.type==="log")addLog(d.line);
+  };
+}
+function render(){
+  $("dot").className="dot "+(status.connected?"ok":"bad");
+  $("stxt").textContent=status.connected?("✅ "+status.loginName+" 在线"):(status.scanning?"等待扫码":"未连接");
+  if(status.connected)$("qrcard").style.display="none";
+}
+function addLog(l){const el=$("log");el.innerHTML+=esc(l)+"\n";el.scrollTop=el.scrollHeight;}
+function addMsg(d){$("feed").innerHTML+=`<div class="msg"><div class="who">${esc(d.ev)} · ${esc(d.talker)} · ${esc(d.time)}</div><div class="txt">${esc(d.content)}</div></div>`;$("feed").scrollTop=$("feed").scrollHeight;}
+async function saveCfg(){await fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({agent:{mode:$("agentMode").value,openai:{baseUrl:$("oBase").value,apiKey:$("oKey").value,model:$("oModel").value},customUrl:$("cUrl").value},auto:{roomPolicy:$("roomPolicy").value}})});alert("已保存");}
+async function doSay(){const r=await fetch("/api/say",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("sendKind").value,id:$("sendId").value,text:$("sendText").value})});alert(JSON.stringify(await r.json()));}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "wecom-aibot-demo",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "@wecom/aibot-node-sdk": "latest" }
+}
