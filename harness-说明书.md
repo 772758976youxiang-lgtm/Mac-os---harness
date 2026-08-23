@@ -99,7 +99,9 @@ python gateway.py                                      # 微信群聊 → harnes
 1. Node ≥ 18（改核心源码需 22.19/24 + pnpm）；
 2. **一次 clone 拿全部**：`git clone git@github.com:772758976youxiang-lgtm/Mac-os---harness.git`（内含 harness 源码 + 本说明书 + `dsh-channel-im/` 完整扩展）；
 3. 运行版：`npm i -g @deepseek-ai/dsh`（或用源码 `pnpm install`）→ `npx dsh web`（3080）；
-4. `bash dsh-channel-im/install.sh`（已在克隆内：装桥接到 `~/.dsh-channel-im` + 技能 + 预设 + 「连接」页/「外部打开」补丁）；
+4. **功能自动补齐**（无需手工第 2 步）：
+   - 源码构建：仓库根 `pnpm install` 时 postinstall 自动执行 `dsh-channel-im/auto-install.mjs`（装桥接/技能/预设；源码版自动跳过不适配补丁并提示）；
+   - 官方 npm 版：`node dsh-channel-im/auto-install.mjs` 一步补齐（含「连接」页/「外部打开」注入）；
 5. 通道：机器人给凭证 / 真人扫码（`node auth.mjs login`）/ 企微 Bot ID+Secret / 微信群聊按「Windows 网关」文档；
 6. 验证：浏览器 3080 → 设置「连接」→ 钉钉发消息。
 
@@ -116,6 +118,7 @@ python gateway.py                                      # 微信群聊 → harnes
 | 2026-08-23 | 维护闭环升级 | 新功能必须源码入库+推送私人仓库+同步说明书；新设备完整性标准 |
 | 2026-08-23 | 峰谷计费显示（周末全天谷价） | 状态栏峰/谷徽标（北京时间 9–12/14–18 为峰，周末全天谷）+ 上下文面板「账户余额」「本会话已用」费用行；费用按每请求实际发生时刻逐条计价（投影层持久估算，非当前时刻一刀切） |
 | 2026-08-23 | 仓库定位确认 | 功能与本机一致、**凭证零入库**（API Key/通道凭证/登录态由新设备重新配置，均有引导流程） |
+| 2026-08-23 | 新机自动补齐 | 仓库根 postinstall → auto-install.mjs（跨平台）：桥接/技能/预设自动装；官方npm版自动注入连接页/外部打开 |
 
 ## 九、维护规则（agent 必读，自动更新）
 
