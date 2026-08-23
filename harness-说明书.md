@@ -91,19 +91,19 @@ python gateway.py                                      # 微信群聊 → harnes
 - 桥接默认使用该预设（`DSH_AGENT_PRESET` 可覆盖；通道可配 `agentPreset` 单独指定）；
 - ⚠️ 修改预设的坑：**persona 文本每行必须缩进 6 空格**（顶格会被当新插件行 → `failed to mount`）；改完用 `agentPreset.list` 校验无 `broken`。
 
-## 七、新设备 10 分钟上手
+## 七、新设备 10 分钟上手（与本机功能一致）
 
-> **完整性保证**：本仓库包含**全部功能**（桥接/通道能力/连接页/外部打开/预设/技能/演示台/网关 = 与本机一致）；clone + `bash dsh-channel-im/install.sh` 后即得完整环境。
-> **凭证自理**：仓库**不含任何凭证**（API Key / 通道 AppKey·Secret / dws 登录态 / 会话数据）——新设备需重新配置（均有引导）：① DeepSeek API Key → 设置→模型；② 钉钉机器人 → 对话输入凭证（技能 im-channel-setup）；③ 数字人 → 扫码（auth.mjs）；④ 微信通道 → 按《微信群聊通道接入说明》准备小号与 hook。
+> **一致性口径**：新设备 = **官方原版 harness + 插件** = 本机功能。插件仓库是唯一扩展来源；本机与插件之间的差异只剩「凭证/数据自理」。
 
-1. Node ≥ 18（改核心源码需 22.19/24 + pnpm）；
-2. **一次 clone 拿全部**：`git clone git@github.com:772758976youxiang-lgtm/Mac-os---harness.git`（内含 harness 源码 + 本说明书 + `dsh-channel-im/` 完整扩展）；
-3. 运行版：`npm i -g @deepseek-ai/dsh`（或用源码 `pnpm install`）→ `npx dsh web`（3080）；
-4. **功能自动补齐**（无需手工第 2 步）：
-   - 源码构建：仓库根 `pnpm install` 时 postinstall 自动执行 `dsh-channel-im/auto-install.mjs`（装桥接/技能/预设；源码版自动跳过不适配补丁并提示）；
-   - 官方 npm 版：`node dsh-channel-im/auto-install.mjs` 一步补齐（含「连接」页/「外部打开」注入）；
-5. 通道：机器人给凭证 / 真人扫码（`node auth.mjs login`）/ 企微 Bot ID+Secret / 微信群聊按「Windows 网关」文档；
-6. 验证：浏览器 3080 → 设置「连接」→ 钉钉发消息。
+1. Node ≥ 18；
+2. **装官方原版 harness**：`npm i -g @deepseek-ai/dsh` → `npx dsh web`（3080；含官方全部功能：token 计量/峰谷/文件查看/中文界面）；
+3. **装扩展插件（唯一一步，全功能）**：
+   `dsh plugin --profile web install git+ssh://git@github.com:772758976youxiang-lgtm/-.git`
+   （桥接/数字人扫码/「连接」页(原生)/「外部打开」/技能×2/「机器人助手」预设/微信网关 全自动；细节见插件 README/INSTALL/AGENTS.md）；
+4. **凭证自理 4 项**：① DeepSeek API Key（设置→模型）② 钉钉机器人凭证 ③ 数字人扫码 ④ 微信小号+hook；
+5. 验证：浏览器 3080 → 设置「连接」显示桥接状态；`npx dsh --profile headless "你好"`。
+
+> 注：企微/微信通道当前为“调研+网关代码，桥接未接入”，本机与新设备**同此现状**（不构成差异）；需要时另行实现。
 
 ## 八、更新日志
 
@@ -119,6 +119,7 @@ python gateway.py                                      # 微信群聊 → harnes
 | 2026-08-23 | 峰谷计费显示（周末全天谷价） | 状态栏峰/谷徽标（北京时间 9–12/14–18 为峰，周末全天谷）+ 上下文面板「账户余额」「本会话已用」费用行；费用按每请求实际发生时刻逐条计价（投影层持久估算，非当前时刻一刀切） |
 | 2026-08-23 | 仓库定位确认 | 功能与本机一致、**凭证零入库**（API Key/通道凭证/登录态由新设备重新配置，均有引导流程） |
 | 2026-08-23 | 新机自动补齐 | 仓库根 postinstall → auto-install.mjs（跨平台）：桥接/技能/预设自动装；官方npm版自动注入连接页/外部打开 |
+| 2026-08-23 | 一致性口径定稿 | 新设备=官方原版harness+插件(`-`仓库)=本机；插件=唯一扩展源；凭证/数据自理；企微/微信为待实现现状（两边一致） |
 
 ## 九、维护规则（agent 必读，自动更新）
 
