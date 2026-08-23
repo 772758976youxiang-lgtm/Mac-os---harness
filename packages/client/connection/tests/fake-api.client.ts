@@ -147,6 +147,13 @@ export class FakeApiClient implements IApiClient {
     listDirectory: payload => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: payload => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: payload => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    balance: payload => this.record('host.balance', payload, Promise.resolve(ok({
+      available: true,
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+      currency: 'CNY',
+      totalBalance: 1,
+    }))),
   }
 
   readonly workspace: IApiClient['workspace'] = {

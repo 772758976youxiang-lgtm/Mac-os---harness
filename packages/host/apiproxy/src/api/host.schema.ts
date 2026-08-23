@@ -73,3 +73,16 @@ export const hostOpenPathRequestSchema = z.object({
 export const hostOpenPathValueSchema = z.object({
   opened: z.literal(true),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.openPath'>>>
+
+/** host.balance request payload (empty object literal). */
+export const hostBalanceRequestSchema = z.object({}) satisfies z.ZodType<Wire<RequestPayload<'host.balance'>>>
+
+/** host.balance response value: the current provider account balance, when queryable. */
+export const hostBalanceValueSchema = z.object({
+  available: z.boolean(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  currency: z.string().optional(),
+  totalBalance: z.number().optional(),
+  message: z.string().optional(),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.balance'>>>

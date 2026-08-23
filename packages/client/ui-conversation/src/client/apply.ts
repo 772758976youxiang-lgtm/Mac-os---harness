@@ -300,6 +300,7 @@ export function apply(ctx: Context): void {
           toggleCommandMenu: undefined,
           stop: undefined,
           command: undefined,
+          loadBalance: undefined,
           hooks: { notices: ABSENT_NOTICES, lexicon: ABSENT_LEXICON, menuLauncher: ABSENT_MENU_LAUNCHER },
         }
       }
@@ -360,6 +361,7 @@ export function apply(ctx: Context): void {
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
         },
+        loadBalance: () => workspaces.balance(),
       }
     },
   }, InputBar)

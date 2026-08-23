@@ -2909,6 +2909,36 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       async openPath(request, signal) {
         return openPath(request, request.payload.path, signal)
       },
+
+      async balance(request, signal) {
+        const selection = defaults.defaultModelSelection()
+        const provider = selection.provider
+        const balance = provider === undefined ? undefined : ctx.get(`${provider}.balance`)
+        if (balance === undefined) {
+          return ok(request, { available: false, provider, message: '当前平台不提供余额查询' })
+        }
+        try {
+          const value = await balance.getBalance(signal)
+          return ok(request, {
+            available: value.available,
+            provider,
+            model: selection.model,
+            currency: value.currency,
+            totalBalance: value.totalBalance,
+          })
+        } catch (error: unknown) {
+          // An abort is the caller's own timeout/disconnect, not a server
+          // failure — same treatment the directory verbs give it.
+          if (signal.aborted) {
+            return err(request, { code: 'cancelled', message: '余额查询已取消', details: {} })
+          }
+          return err(request, {
+            code: 'internal',
+            message: `余额查询失败: ${error instanceof Error ? error.message : String(error)}`,
+            details: {},
+          })
+        }
+      },
     },
 
     goals: {

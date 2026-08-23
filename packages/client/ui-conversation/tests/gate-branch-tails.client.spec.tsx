@@ -90,6 +90,9 @@ describe('render branch tails', () => {
       ],
     }
     const source = { getSnapshot: () => snap, subscribe: () => () => {} }
+    // Deterministic billing tide: Sunday 2026-08-23 10:00 Beijing is all-day valley.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T10:00:00+08:00'))
     const view = render(
       <StatsLine
         t={t}
@@ -97,7 +100,7 @@ describe('render branch tails', () => {
         useProjection={() => undefined}
       />,
     )
-    expect(view.container.textContent).toBe('2 轮 · 3 步')
+    expect(view.container.textContent).toBe('谷| 2 轮 · 3 步')
   })
 
   it('AssistantMarkdown reasoning as the streaming tail renders the running ring', () => {

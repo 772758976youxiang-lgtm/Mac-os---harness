@@ -1,7 +1,7 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
-  DirectoryListing, IWorkspaces, SessionId, SnapshotStore, WorkspaceId, WorkspaceListState, WorkspaceView,
+  DirectoryListing, HostBalance, IWorkspaces, SessionId, SnapshotStore, WorkspaceId, WorkspaceListState, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { workspaceListState } from './fixtures.ts'
 import type { Stabilizer } from './fixtures.ts'
@@ -95,6 +95,18 @@ export class TestWorkspaces implements IWorkspaces {
   async openPath(path: string): Promise<void> {
     this.calls.push({ method: 'openPath', args: [path] })
     await (this.stubs.get('openPath')?.(path) as Promise<void> | undefined)
+  }
+
+  /**
+   * Host account balance query (recorded). The default reports the provider
+   * as not queryable; stub to serve a balance.
+   * @returns the balance snapshot.
+   */
+  async balance(): Promise<HostBalance> {
+    this.calls.push({ method: 'balance', args: [] })
+    const stub = this.stubs.get('balance')
+    if (stub !== undefined) return await (stub() as Promise<HostBalance>)
+    return { available: false, message: '当前平台不提供余额查询' }
   }
 
   /**

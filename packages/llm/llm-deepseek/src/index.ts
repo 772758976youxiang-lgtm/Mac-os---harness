@@ -445,6 +445,58 @@ export function apply(ctx: Context, config: Config): void {
   // Route effects bind to this apply fiber via the stable `ctx` reference,
   // even when a swap runs inside the scoped settings callback below.
   const registration = ctx.llm.registerAdapter([PROVIDER], adapter)
+  // Balance querying service keyed `${provider}.balance`, consumed by the
+  // host's `host.balance` RPC (the web UI's account-balance read). Serves the
+  // official `/user/balance` endpoint under the same resolved connection the
+  // adapter uses, so settings and key resolution stay one-seat.
+  ctx.provide(`${PROVIDER}.balance`, {
+    getBalance: async (signal?: AbortSignal) => {
+      const connection = options()
+      const apiKey = await resolveApiKey(connection)
+      const baseURL = connection.baseURL.replace(/\/+$/u, '').replace(/\/v1$/u, '')
+      const response = await fetch(`${baseURL}/user/balance`, {
+        headers: { authorization: `Bearer ${apiKey}` },
+        ...(signal === undefined ? {} : { signal }),
+      })
+      if (!response.ok) {
+        let detail = ''
+        try {
+          const parsed = await response.json() as { message?: string; detail?: string }
+          detail = parsed?.message ?? parsed?.detail ?? ''
+        } catch {
+          // The body is best-effort diagnostics only; the status carries the failure.
+        }
+        throw new LlmError(`DeepSeek balance request failed (HTTP ${response.status})`, 'TRANSPORT', { cause: new Error(detail) })
+      }
+      const data = await response.json() as {
+        is_available?: boolean
+        balance_infos?: Array<{
+          currency?: string
+          granted_balance?: string | number
+          topped_up_balance?: string | number
+          total_balance?: string | number
+        }>
+      }
+      const info = Array.isArray(data.balance_infos) ? data.balance_infos[0] : undefined
+      const parseAmount = (value: string | number | undefined): number | undefined => {
+        if (typeof value === 'number') return value
+        if (typeof value === 'string' && value !== '' && Number.isFinite(Number(value))) return Number(value)
+        return undefined
+      }
+      const granted = parseAmount(info?.granted_balance)
+      const toppedUp = parseAmount(info?.topped_up_balance)
+      const totalBalance = parseAmount(info?.total_balance)
+        ?? (granted !== undefined && toppedUp !== undefined ? granted + toppedUp : undefined)
+      if (totalBalance === undefined) {
+        throw new LlmError(`DeepSeek balance response missing total_balance: ${JSON.stringify(data)}`, 'INVALID_RESPONSE')
+      }
+      return {
+        available: data.is_available === true,
+        currency: typeof info?.currency === 'string' ? info.currency : undefined,
+        totalBalance,
+      }
+    },
+  })
   let registeredPolicy = options().retryPolicy
   const ensureRegistrationFacts = (): void => {
     const policy = options().retryPolicy

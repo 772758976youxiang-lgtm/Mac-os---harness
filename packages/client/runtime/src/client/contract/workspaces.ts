@@ -6,7 +6,7 @@
  * the concrete class. Widening this interface is the explicit act of
  * widening what features may do to the workspaces domain.
  */
-import type { DirectoryListing, SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { DirectoryListing, HostBalance, SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { WorkspaceListState } from '../workspaces/service.ts'
 import type { ObservableSnapshot } from './store.ts'
 
@@ -58,6 +58,12 @@ export interface IWorkspaces {
    * @param path - absolute or host-resolvable path.
    */
   openPath(path: string): Promise<void>
+  /**
+   * Query the active provider account balance through the Host.
+   * @returns the balance snapshot; `available: false` plus `message` when the
+   * active provider does not offer balance querying.
+   */
+  balance(): Promise<HostBalance>
   /**
    * Rename a Workspace.
    * @param workspaceId - target workspace.

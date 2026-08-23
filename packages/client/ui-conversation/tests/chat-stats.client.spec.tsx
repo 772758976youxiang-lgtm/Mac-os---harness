@@ -12,7 +12,10 @@ import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { StatsLine, contextOccupancy, deriveStats, formatDuration, formatTokens, type StatsLineProps } from '../src/client/chat/StatsLine.tsx'
+import {
+  StatsLine, contextOccupancy, currencySymbol, deriveStats, formatDuration, formatTokens,
+  isDeepSeekPeak, moneyText, sessionCost, tokenMoneyRates, type StatsLineProps,
+} from '../src/client/chat/StatsLine.tsx'
 import { en, zh } from '../src/client/locales.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
 
@@ -169,6 +172,13 @@ describe('formatters', () => {
 })
 
 describe('StatsLine', () => {
+  beforeEach(() => {
+    // Deterministic billing tide: Sunday 2026-08-23 10:00 Beijing is all-day
+    // valley since the weekend peak removal (see isDeepSeekPeak).
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T10:00:00+08:00'))
+  })
+
   const USAGE = { uncachedInputTokens: 10, outputTokens: 5, cacheReadTokens: 90, cacheWriteTokens: 0 }
 
   /** A whole-log sessionStats value: zeros plus overrides. */
@@ -200,7 +210,7 @@ describe('StatsLine', () => {
     const view = render(<StatsLine {...props(source)} />)
     // No timing on the fixture: the duration group drops out whole. Tokens come
     // from the projection, so paging the window cannot change them.
-    expect(view.container.textContent).toBe('1 turns · 1 steps| Cache hit 90%| Input 100 tok · Output 5 tok')
+    expect(view.container.textContent).toBe('Valley| 1 turns · 1 steps| Cache hit 90%| Input 100 tok · Output 5 tok')
     const empty = makeSource()
     const emptyView = render(<StatsLine {...props(empty.source, {
       tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
@@ -245,7 +255,7 @@ describe('StatsLine', () => {
     expect(view.container.querySelector('[role="tooltip"]')).toBeNull()
     act(() => { vi.advanceTimersByTime(1) })
     expect(view.container.querySelector('[role="tooltip"]')?.textContent)
-      .toBe('1 turns · 1 steps | Cache hit 99.95% | Input 10K tok · Output 1 tok')
+      .toBe('Valley | 1 turns · 1 steps | Cache hit 99.95% | Input 10K tok · Output 1 tok')
   })
 
   it('suppresses the tooltip while the row fits without truncation', () => {
@@ -275,7 +285,7 @@ describe('StatsLine', () => {
     const { source } = makeSource({ nodes: [timed] })
     const view = render(<StatsLine {...props(source, { tokenUsage: tokenUsage(9_995, 5) })} t={t} />)
     expect(view.container.textContent)
-      .toBe('1 轮 · 1 步| LLM 3.8s| 首 token 平均 0.8s · 20 tok/s| 缓存命中 99.95%| 输入 10K tok · 输出 1 tok')
+      .toBe('谷| 1 轮 · 1 步| LLM 3.8s| 首 token 平均 0.8s · 20 tok/s| 缓存命中 99.95%| 输入 10K tok · 输出 1 tok')
   })
 
   it('renders without ResizeObserver support', () => {
@@ -292,7 +302,7 @@ describe('StatsLine', () => {
     })} />)
     // Context occupancy lives on the composer's ContextMeter ring, not here.
     expect(view.container.textContent)
-      .toBe('Cache hit 90%| Input 100 tok · Output 5 tok')
+      .toBe('Valley| Cache hit 90%| Input 100 tok · Output 5 tok')
   })
 
   it('computes context occupancy only when both a numerator and capacity are known', () => {
@@ -316,7 +326,7 @@ describe('StatsLine', () => {
   it('drops every token group when no projection is composed', () => {
     const { source } = makeSource({ nodes: [assistant(1, 1)] })
     const view = render(<StatsLine {...props(source, {})} />)
-    expect(view.container.textContent).toBe('1 turns · 1 steps')
+    expect(view.container.textContent).toBe('Valley| 1 turns · 1 steps')
   })
 
   it('renders whole-session counts from the sessionStats projection over the paged window', () => {
@@ -328,7 +338,7 @@ describe('StatsLine', () => {
       sessionStats: sessionStats({ turns: 10, steps: 89 }),
     })} />)
     expect(view.container.textContent)
-      .toBe('10 turns · 89 steps| Cache hit 90%| Input 100 tok · Output 5 tok')
+      .toBe('Valley| 10 turns · 89 steps| Cache hit 90%| Input 100 tok · Output 5 tok')
   })
 
   it('treats a defined zero-count projection as empty, not as fallback', () => {
@@ -350,7 +360,7 @@ describe('StatsLine', () => {
       tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
       sessionStats: sessionStats({ turns: 1, steps: 1 }),
     })} />)
-    expect(view.container.textContent).toBe('1 turns · 1 steps')
+    expect(view.container.textContent).toBe('Valley| 1 turns · 1 steps')
   })
 
   it('keeps the counts group over an empty visible window when the projection carries totals', () => {
@@ -362,7 +372,7 @@ describe('StatsLine', () => {
       sessionStats: sessionStats({ turns: 7, steps: 44 }),
     })} />)
     expect(view.container.textContent)
-      .toBe('7 turns · 44 steps| Cache hit 90%| Input 100 tok · Output 5 tok')
+      .toBe('Valley| 7 turns · 44 steps| Cache hit 90%| Input 100 tok · Output 5 tok')
   })
 
   it('renders whole-log wall times and speeds from the projection, not the loaded window', () => {
@@ -378,7 +388,7 @@ describe('StatsLine', () => {
       }),
     })} />)
     expect(view.container.textContent).toBe(
-      '200 turns · 200 steps| LLM 1m40s · Tool call 1m2s| TTFT avg 0.8s · 20 tok/s| Cache hit 90%| Input 100 tok · Output 5 tok',
+      'Valley| 200 turns · 200 steps| LLM 1m40s · Tool call 1m2s| TTFT avg 0.8s · 20 tok/s| Cache hit 90%| Input 100 tok · Output 5 tok',
     )
   })
 
@@ -387,7 +397,7 @@ describe('StatsLine', () => {
     const view = render(<StatsLine {...props(source, {
       tokenUsage: { uncachedInputTokens: 0, outputTokens: 7, cacheReadTokens: 0, cacheWriteTokens: 0 },
     })} />)
-    expect(view.container.textContent).toBe('1 turns · 1 steps| Input 0 tok · Output 7 tok')
+    expect(view.container.textContent).toBe('Valley| 1 turns · 1 steps| Input 0 tok · Output 7 tok')
   })
 
   it('includes cache writes in billed input and the cache-hit denominator', () => {
@@ -401,7 +411,7 @@ describe('StatsLine', () => {
       },
     })} />)
     expect(view.container.textContent)
-      .toBe('1 turns · 1 steps| Cache hit 45%| Input 200 tok · Output 7 tok')
+      .toBe('Valley| 1 turns · 1 steps| Cache hit 45%| Input 200 tok · Output 7 tok')
   })
 
   it('renders ZERO times during streaming chunk frames (RFC hard acceptance)', () => {
@@ -418,5 +428,80 @@ describe('StatsLine', () => {
     act(() => { set({ partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'ab' }] } }) })
     act(() => { set({ running: true }) })
     expect(renders).toBe(before)
+  })
+
+  it('leads the row with 峰 during a weekday peak window and 谷 on weekends', () => {
+    const { source } = makeSource({ nodes: [assistant(1, 1)] })
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T10:00:00+08:00'))
+    const peakView = render(<StatsLine {...props(source, { tokenUsage: tokenUsage(0, 1) })} />)
+    expect(peakView.container.textContent?.startsWith('Peak| ')).toBe(true)
+    vi.setSystemTime(new Date('2026-08-23T10:00:00+08:00'))
+    const valleyView = render(<StatsLine {...props(source, { tokenUsage: tokenUsage(0, 1) })} />)
+    expect(valleyView.container.textContent?.startsWith('Valley| ')).toBe(true)
+  })
+})
+
+describe('peak/valley pricing', () => {
+  const at = (iso: string): Date => new Date(iso)
+
+  it('marks the weekday peak windows and off-peak hours in Beijing time', () => {
+    expect(isDeepSeekPeak(at('2026-08-24T10:00:00+08:00'))).toBe(true) // Mon, inside 09:00–12:00
+    expect(isDeepSeekPeak(at('2026-08-24T15:30:00+08:00'))).toBe(true) // Mon, inside 14:00–18:00
+    expect(isDeepSeekPeak(at('2026-08-24T08:59:00+08:00'))).toBe(false) // before the window
+    expect(isDeepSeekPeak(at('2026-08-24T12:00:00+08:00'))).toBe(false) // window closes at 12:00
+    expect(isDeepSeekPeak(at('2026-08-24T14:00:00+08:00'))).toBe(true) // second window opens at 14:00
+    expect(isDeepSeekPeak(at('2026-08-24T18:00:00+08:00'))).toBe(false) // window closes at 18:00
+    expect(isDeepSeekPeak(at('2026-08-24T20:00:00+08:00'))).toBe(false) // evening valley
+  })
+
+  it('is all-day valley on weekends since the 2026-08-23 policy change', () => {
+    expect(isDeepSeekPeak(at('2026-08-23T10:00:00+08:00'))).toBe(false) // Sunday, former peak window
+    expect(isDeepSeekPeak(at('2026-08-23T15:00:00+08:00'))).toBe(false) // Sunday, former peak window
+    expect(isDeepSeekPeak(at('2026-08-22T16:00:00+08:00'))).toBe(false) // Saturday, former peak window
+  })
+
+  it('shifts to Beijing time before reading the weekday and hour', () => {
+    // 2026-08-24 08:30 UTC = 16:30 Beijing, inside the weekday peak window.
+    expect(isDeepSeekPeak(at('2026-08-24T08:30:00Z'))).toBe(true)
+    // 2026-08-23 02:00 UTC = 10:00 Beijing Sunday — weekend valley.
+    expect(isDeepSeekPeak(at('2026-08-23T02:00:00Z'))).toBe(false)
+  })
+
+  it('applies full rates to peak hours and half rates to DeepSeek off-peak hours', () => {
+    expect(tokenMoneyRates(at('2026-08-24T10:00:00+08:00'), 'deepseek-official', 'deepseek-v4-flash'))
+      .toEqual({ inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 })
+    expect(tokenMoneyRates(at('2026-08-24T20:00:00+08:00'), 'deepseek-official', 'deepseek-v4-flash'))
+      .toEqual({ inputCacheHit: 0.05, inputCacheMiss: 1.5, output: 4.5 })
+    expect(tokenMoneyRates(at('2026-08-23T10:00:00+08:00'), 'deepseek-official', 'deepseek-v4-pro'))
+      .toEqual({ inputCacheHit: 0.15, inputCacheMiss: 4.5, output: 13.5 })
+  })
+
+  it('falls back to default rates for providers and models without a price entry', () => {
+    expect(tokenMoneyRates(at('2026-08-24T10:00:00+08:00'), 'some-other', 'model-x'))
+      .toEqual({ inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 })
+    // An unknown provider never applies the DeepSeek off-peak factor.
+    expect(tokenMoneyRates(at('2026-08-24T20:00:00+08:00'), undefined, undefined))
+      .toEqual({ inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 })
+  })
+
+  it('computes the session cost from cache-hit, cache-miss, and output buckets', () => {
+    const usage = {
+      uncachedInputTokens: 400_000, cacheReadTokens: 1_000_000, cacheWriteTokens: 100_000, outputTokens: 0,
+    }
+    // Off-peak half rates: 1M hits at 0.05 + 500K misses at 1.5 = 0.05 + 0.75.
+    expect(sessionCost(usage, at('2026-08-24T20:00:00+08:00'), 'deepseek-official', 'deepseek-v4-flash'))
+      .toBeCloseTo(0.8, 6)
+  })
+
+  it('formats currency symbols and money text', () => {
+    expect(currencySymbol('CNY')).toBe('¥')
+    expect(currencySymbol('RMB')).toBe('¥')
+    expect(currencySymbol('USD')).toBe('$')
+    expect(currencySymbol('')).toBe('$')
+    expect(currencySymbol(undefined)).toBe('$')
+    expect(currencySymbol('EUR')).toBe('EUR ')
+    expect(moneyText('CNY', 12.3)).toBe('¥12.30')
+    expect(moneyText('CNY', undefined)).toBe('—')
   })
 })

@@ -6,16 +6,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { UseProjection } from '@deepseek-ai/dsh-client-runtime/client'
+import type { HostBalance } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: the `contextPressure` / `contextBreakdown` projection key merges.
 import type {} from '@deepseek-ai/dsh-token-meter/client'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
-import { contextOccupancy, formatTokens } from '../chat/StatsLine.tsx'
+import { billedInputTokens, contextOccupancy, formatTokens, moneyText, sessionCost } from '../chat/StatsLine.tsx'
 import css from './ContextMeter.module.css'
 
 /** Ring geometry: 14px viewBox, 2px stroke. */
 const RADIUS = 5.5
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+/** Balance polling interval, so the account balance refreshes in real time. */
+const BALANCE_POLL_MS = 30_000
 
 /**
  * Marker the localized occupancy sentence is split on, so the panel headline
@@ -35,15 +38,39 @@ export interface ContextMeterProps {
   useProjection: UseProjection
   /** The owning bar's locale seat, passed down as a plain prop. */
   t: ComposerBarProps['t']
+  /** Host account-balance loader; undefined without a session (no panel feed at all). */
+  loadBalance: (() => Promise<HostBalance>) | undefined
 }
 
-export function ContextMeter({ useProjection, t }: ContextMeterProps) {
+export function ContextMeter({ useProjection, t, loadBalance }: ContextMeterProps) {
   const pressure = useProjection('contextPressure')
   const breakdown = useProjection('contextBreakdown')
+  const usage = useProjection('tokenUsage')
   const [open, setOpen] = useState(false)
+  const [balance, setBalance] = useState<HostBalance | null>(null)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const context = contextOccupancy(pressure)
   const available = context !== null
+
+  // Balance seed plus interval while mounted; a failure surfaces the message
+  // in the panel instead of retry-spamming the console.
+  useEffect(() => {
+    if (loadBalance === undefined) return
+    let alive = true
+    const refresh = (): void => {
+      Promise.resolve(loadBalance()).then((value) => {
+        if (alive) setBalance(value)
+      }).catch((error: unknown) => {
+        if (alive) setBalance({ available: false, message: error instanceof Error ? error.message : String(error) })
+      })
+    }
+    refresh()
+    const id = setInterval(refresh, BALANCE_POLL_MS)
+    return () => {
+      alive = false
+      clearInterval(id)
+    }
+  }, [loadBalance])
 
   // A model switch can temporarily remove capacity while this component stays
   // mounted. Close the now-unavailable panel instead of preserving stale UI.
@@ -146,6 +173,29 @@ export function ContextMeter({ useProjection, t }: ContextMeterProps) {
               ))}
             </dl>
           )}
+          <dl className={css.rows}>
+            <div className={css.row}>
+              <dt>{t('context.balance')}</dt>
+              <dd>
+                {balance !== null && balance.available === true && balance.totalBalance !== undefined
+                  ? moneyText(balance.currency, balance.totalBalance)
+                  : balance !== null ? (balance.message ?? '—') : '…'}
+              </dd>
+            </div>
+            {usage !== undefined && (
+              <div className={css.row}>
+                <dt>{t('context.sessionUsed')}</dt>
+                <dd>
+                  {/* The durable projection prices each request at its own
+                      report time (peak/valley per request); the heuristic
+                      fallback covers logs the host has not repriced yet. */}
+                  {`${usage.cost !== undefined
+                    ? moneyText('CNY', usage.cost)
+                    : moneyText(balance?.currency, sessionCost(usage, new Date(), balance?.provider, balance?.model))} · ${formatTokens(billedInputTokens(usage) + usage.outputTokens)} tok`}
+                </dd>
+              </div>
+            )}
+          </dl>
         </div>
       )}
     </span>

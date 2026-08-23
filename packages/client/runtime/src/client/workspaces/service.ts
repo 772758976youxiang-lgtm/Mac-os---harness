@@ -2,7 +2,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  DirectoryListing, IApiClient, RpcError,
+  DirectoryListing, HostBalance, IApiClient, RpcError,
   SessionId, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '../contract/store.ts'
@@ -247,6 +247,19 @@ export class WorkspaceRuntime implements IWorkspaces {
     if (!response.result.ok) {
       throw new Error(`path open failed: ${response.result.error.message}`)
     }
+  }
+
+  /**
+   * Query the active provider account balance through the Host.
+   * @returns the balance snapshot; `available: false` plus `message` when the
+   * active provider does not offer balance querying.
+   */
+  async balance(): Promise<HostBalance> {
+    const response = await this.api.host.balance({})
+    if (!response.result.ok) {
+      throw new Error(`balance failed: ${response.result.error.message}`)
+    }
+    return response.result.value
   }
 
   /**

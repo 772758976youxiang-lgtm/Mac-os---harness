@@ -47,18 +47,78 @@ const projectionSchema = z.object({
   cacheWriteTokens: z.number().int().nonnegative(),
 }).strict()
 
+/** DeepSeek official peak-hour CNY price per 1M tokens by model (off-peak = half). */
+const DEEPSEEK_RATES: Record<string, { inputCacheHit: number; inputCacheMiss: number; output: number }> = {
+  'deepseek-v4-flash': { inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 },
+  'deepseek-v4-flash-vision-exp': { inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 },
+  'deepseek-v4-pro': { inputCacheHit: 0.3, inputCacheMiss: 9, output: 27 },
+}
+
+/** Fallback rate when the model has no exact entry (Flash's table). */
+const DEEPSEEK_DEFAULT_RATE = { inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 }
+
+/**
+ * Whether `timeMs` falls in a DeepSeek peak window in Beijing time (UTC+8):
+ * 09:00–12:00, 14:00–18:00. Since 2026-08-23 weekends (Saturday/Sunday) are
+ * all-day off-peak — the weekday-only split no longer applies to them.
+ * @param timeMs - Unix epoch milliseconds.
+ * @returns true only inside a weekday peak window.
+ */
+export function isDeepSeekPeakAt(timeMs: number): boolean {
+  const beijing = new Date(timeMs + 8 * 3_600_000)
+  const day = beijing.getUTCDay()
+  if (day === 0 || day === 6) return false
+  const h = beijing.getUTCHours()
+  return (h >= 9 && h < 12) || (h >= 14 && h < 18)
+}
+
+/**
+ * Estimated CNY cost of one usage sample at `timeMs` for the route's model:
+ * each bucket times its per-1M rate, scaled by the peak/off-peak factor at
+ * the moment the billing was incurred (an estimate, not DeepSeek's ledger).
+ * @param buckets - the sample's disjoint token buckets.
+ * @param timeMs - when the sample was reported.
+ * @param model - the route's model id.
+ * @returns the cost in CNY.
+ */
+export function deepseekUsageCost(buckets: TokenUsageProjection, timeMs: number, model: string): number {
+  const base = DEEPSEEK_RATES[model] ?? DEEPSEEK_DEFAULT_RATE
+  const factor = isDeepSeekPeakAt(timeMs) ? 1 : 0.5
+  return (
+    buckets.cacheReadTokens / 1_000_000 * base.inputCacheHit
+    + (buckets.uncachedInputTokens + buckets.cacheWriteTokens) / 1_000_000 * base.inputCacheMiss
+    + buckets.outputTokens / 1_000_000 * base.output
+  ) * factor
+}
+
 /**
  * The token-usage unit's state schema — the one definition of the state
  * shape; the state type is inferred from it.
  */
 const tokenUsageStateSchema = z.object({
   totals: projectionSchema,
+  /** Accumulated DeepSeek-official estimate (CNY), priced per sample at its report time. */
+  cost: z.number().nonnegative(),
+  /** Route of the most recent request; the pricing table applies only to `deepseek-official`. */
+  route: z.object({
+    provider: z.string(),
+    model: z.string(),
+  }).nullable(),
   last: z.object({
     turn: z.number().int().nonnegative(),
     step: z.number().int().nonnegative(),
     buckets: projectionSchema,
+    /** Cost of the last sample, so a same-step replacement reprices rather than double-counts. */
+    cost: z.number().nonnegative(),
   }).nullable(),
 }).strict()
+
+/** Wire view: the four totals plus the cost when any deepseek-priced usage accumulated. */
+const tokenUsageViewSchema = projectionSchema.extend({
+  cost: z.number().nonnegative().optional(),
+}).strict().transform(({ cost, ...totals }) => (
+  cost === undefined ? totals : { ...totals, cost }
+))
 
 type TokenUsageState = z.infer<typeof tokenUsageStateSchema>
 
@@ -118,10 +178,19 @@ type ContextPressureState = z.infer<typeof contextPressureStateSchema>
  */
 export const tokenUsageProjectionDefinition = {
   key: 'tokenUsage',
-  stateVersion: 1,
+  stateVersion: 2,
   stateSchema: tokenUsageStateSchema,
-  init: () => ({ totals: zeroBuckets(), last: null }),
+  init: () => ({ totals: zeroBuckets(), cost: 0, route: null, last: null }),
   apply: (state, event) => {
+    // The pricing table applies only to the DeepSeek-official route, so the
+    // fold tracks the route each request logged before pricing its usage.
+    if (event.type === 'request/context') {
+      const provider = event.data.provider
+      const model = event.data.model
+      if (state.route !== null && state.route.provider === provider && state.route.model === model) return state
+      return { ...state, route: { provider, model } }
+    }
+
     let turn: number
     let step: number
     let usage: TokenUsage
@@ -138,16 +207,29 @@ export const tokenUsageProjectionDefinition = {
     const previous = state.last !== null
       && state.last.turn === turn
       && state.last.step === step
-      ? state.last.buckets
+      ? state.last
       : undefined
-    if (previous !== undefined && bucketsEqual(previous, buckets)) return state
+    if (previous !== undefined && bucketsEqual(previous.buckets, buckets)) return state
+
+    // Price at the report time with the route active for that request: a
+    // peak-hour request keeps its peak price even when the session runs on
+    // into valley hours (and vice versa). Non-DeepSeek routes cost 0 and the
+    // view then omits the estimate entirely rather than guessing a currency.
+    const priced = state.route !== null && state.route.provider === 'deepseek-official'
+      ? deepseekUsageCost(buckets, event.time, state.route.model)
+      : 0
 
     return {
-      totals: addReplacing(state.totals, previous, buckets),
-      last: { turn, step, buckets },
+      totals: addReplacing(state.totals, previous?.buckets, buckets),
+      cost: state.cost - (previous?.cost ?? 0) + priced,
+      route: state.route,
+      last: { turn, step, buckets, cost: priced },
     }
   },
-  wire: { viewSchema: projectionSchema, view: state => state.totals },
+  wire: {
+    viewSchema: tokenUsageViewSchema,
+    view: state => state.cost > 0 ? { ...state.totals, cost: state.cost } : state.totals,
+  },
 } satisfies ProjectionDefinition<'tokenUsage', TokenUsageState>
 
 /**

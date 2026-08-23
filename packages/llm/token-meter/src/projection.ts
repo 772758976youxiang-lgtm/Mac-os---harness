@@ -15,6 +15,15 @@ export interface TokenUsageProjection {
   outputTokens: number
   cacheReadTokens: number
   cacheWriteTokens: number
+  /**
+   * DeepSeek-official estimate of the accumulated cost in CNY, priced per
+   * request at the time that request's usage was reported (peak windows from
+   * the DeepSeek billing schedule, weekends all-day valley since 2026-08-23).
+   * Absent when no deepseek-official route usage accumulated — the
+   * presenter then falls back to its own current-rate heuristic rather than
+   * displaying a guessed currency.
+   */
+  cost?: number
 }
 
 /**

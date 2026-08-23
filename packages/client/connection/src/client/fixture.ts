@@ -2656,6 +2656,13 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         return ok(request, { path: target })
       },
       openPath: request => ok(request, { opened: true as const }),
+      balance: request => ok(request, {
+        available: true,
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-flash',
+        currency: 'CNY',
+        totalBalance: 12.34,
+      }),
     },
     workspace: {
       list: request => ok(request, {
@@ -3196,6 +3203,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'host.listDirectory': return this.api.host.listDirectory(request, new AbortController().signal)
       case 'host.createDirectory': return this.api.host.createDirectory(request)
       case 'host.openPath': return this.api.host.openPath(request, new AbortController().signal)
+      case 'host.balance': return this.api.host.balance(request, new AbortController().signal)
       case 'workspace.list': return this.api.workspace.list(request)
       case 'workspace.create': return this.api.workspace.create(request)
       case 'workspace.rename': return this.api.workspace.rename(request)

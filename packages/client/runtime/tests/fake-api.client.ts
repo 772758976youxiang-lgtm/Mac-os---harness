@@ -119,6 +119,21 @@ export class FakeApiClient implements IApiClient {
   onOpenPath: (payload: unknown) => Promise<RpcResponse<{ opened: true }>> =
     () => Promise.resolve(ok({ opened: true as const }))
 
+  onBalance: (payload: unknown) => Promise<RpcResponse<{
+    available: boolean
+    provider?: string
+    model?: string
+    currency?: string
+    totalBalance?: number
+    message?: string
+  }>> = () => Promise.resolve(ok({
+    available: true,
+    provider: 'deepseek-official',
+    model: 'deepseek-v4-flash',
+    currency: 'CNY',
+    totalBalance: 1,
+  }))
+
   onListDirectory: (payload: unknown) => Promise<RpcResponse<{
     path: string
     home: string
@@ -181,6 +196,7 @@ export class FakeApiClient implements IApiClient {
     listDirectory: (payload: unknown) => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: (payload: unknown) => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: (payload: unknown) => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    balance: (payload: unknown) => this.record('host.balance', payload, this.onBalance(payload)),
   }
 
   // The archive-set field defaults at the binding below so list stubs keep

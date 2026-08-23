@@ -95,4 +95,31 @@ export interface HostApi {
     request: RpcRequest<{ path: string }>,
     signal: AbortSignal,
   ): Promise<RpcResponse<{ opened: true }>>
+
+  /**
+   * Query the active provider account balance through the provider's own
+   * balance endpoint. The host's default model selection names the provider;
+   * when it does not offer balance querying the response succeeds with
+   * `available: false` plus `message` instead of failing.
+   */
+  balance(
+    request: RpcRequest<{}>,
+    signal: AbortSignal,
+  ): Promise<RpcResponse<HostBalance>>
+}
+
+/** host.balance response value: the current provider account balance, when queryable. */
+export interface HostBalance {
+  /** True when the provider account reports available for new requests. */
+  available: boolean
+  /** The provider that served the reading (the default selection's provider). */
+  provider?: string
+  /** The model selection active at the reading. */
+  model?: string
+  /** ISO 4217 currency code reported by the provider, when present. */
+  currency?: string
+  /** Total account balance in `currency` units, when the provider reports one. */
+  totalBalance?: number
+  /** Human-readable reason when the provider does not offer balance querying. */
+  message?: string
 }

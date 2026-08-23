@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
@@ -242,6 +242,87 @@ describe('tokenUsage session projection', () => {
       cacheReadTokens: 5,
       cacheWriteTokens: 0,
     })
+  })
+})
+
+describe('tokenUsage cost estimate (DeepSeek peak/valley pricing)', () => {
+  const route = (session: Session, provider: string, model: string): void => {
+    session.append('request/context', { provider, model })
+  }
+
+  it('prices each sample at its own report time instead of the current clock', async () => {
+    const { ctx, session } = await harness()
+    vi.useFakeTimers()
+    // Monday 10:00 Beijing — inside the 09:00–12:00 peak window.
+    vi.setSystemTime(new Date('2026-08-24T10:00:00+08:00'))
+    route(session, 'deepseek-official', 'deepseek-v4-flash')
+    startStep(session, 1, 1)
+    usageChunk(session, { inputTokens: 1_000_000, outputTokens: 1_000_000, cacheReadTokens: 1_000_000 }, 1, 1)
+    // Monday 20:00 Beijing — valley.
+    vi.setSystemTime(new Date('2026-08-24T20:00:00+08:00'))
+    startStep(session, 1, 2)
+    usageChunk(session, { inputTokens: 0, outputTokens: 1_000_000, cacheReadTokens: 0 }, 1, 2)
+
+    const value = projected(ctx, session)
+    // Peak: 1M hits × 0.1 + 1M misses × 3 + 1M output × 9 = 12.1
+    // Valley: 1M output × 4.5 = 4.5
+    expect(value.cost).toBeCloseTo(12.1 + 4.5, 6)
+  })
+
+  it('applies the all-day valley rate on weekends since 2026-08-23', async () => {
+    const { ctx, session } = await harness()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T10:00:00+08:00')) // Sunday, former peak window
+    route(session, 'deepseek-official', 'deepseek-v4-flash')
+    startStep(session, 1, 1)
+    usageChunk(session, { inputTokens: 0, outputTokens: 2_000_000, cacheReadTokens: 0 }, 1, 1)
+    expect(projected(ctx, session).cost).toBeCloseTo(9, 6)
+  })
+
+  it('prices by the model the route reported for that request', async () => {
+    const { ctx, session } = await harness()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T10:00:00+08:00'))
+    route(session, 'deepseek-official', 'deepseek-v4-pro')
+    startStep(session, 1, 1)
+    usageChunk(session, { inputTokens: 0, outputTokens: 1_000_000, cacheReadTokens: 0 }, 1, 1)
+    expect(projected(ctx, session).cost).toBeCloseTo(27, 6)
+  })
+
+  it('keeps a step priced once when the usage chunk and final message agree', async () => {
+    const { ctx, session } = await harness()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T10:00:00+08:00'))
+    route(session, 'deepseek-official', 'deepseek-v4-flash')
+    startStep(session, 1, 1)
+    const source = usageChunk(session, { inputTokens: 1_000_000, outputTokens: 1_000_000 }, 1, 1)
+    finalUsage(session, { inputTokens: 1_000_000, outputTokens: 1_000_000 }, 1, 1, [source])
+    // Valley: 1M misses × 1.5 + 1M output × 4.5 = 6.
+    expect(projected(ctx, session).cost).toBeCloseTo(6, 6)
+  })
+
+  it('keeps prior deepseek cost when the route later switches away', async () => {
+    const { ctx, session } = await harness()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T10:00:00+08:00'))
+    route(session, 'deepseek-official', 'deepseek-v4-flash')
+    startStep(session, 1, 1)
+    usageChunk(session, { inputTokens: 0, outputTokens: 1_000_000, cacheReadTokens: 0 }, 1, 1)
+    route(session, 'some-other', 'model-x')
+    startStep(session, 1, 2)
+    usageChunk(session, { inputTokens: 0, outputTokens: 1_000_000, cacheReadTokens: 0 }, 1, 2)
+    // Only the deepseek step is priced; the other provider contributes nothing.
+    expect(projected(ctx, session).cost).toBeCloseTo(9, 6)
+  })
+
+  it('omits the cost field without any deepseek-official route usage', async () => {
+    const { ctx, session } = await harness()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T10:00:00+08:00'))
+    route(session, 'mock', 'mock')
+    startStep(session, 1, 1)
+    usageChunk(session, { inputTokens: 100, outputTokens: 10 }, 1, 1)
+    expect(projected(ctx, session)).not.toHaveProperty('cost')
   })
 })
 

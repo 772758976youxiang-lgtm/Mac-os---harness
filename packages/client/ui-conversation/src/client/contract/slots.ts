@@ -7,7 +7,7 @@ import type {
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
   CommandNode, CompactionSummaryNode, ConversationSnapshot, ConversationTurnDataMap,
-  ObservableSnapshot, PendingInteraction, PendingWait, SessionId, ToolCallBlock,
+  HostBalance, ObservableSnapshot, PendingInteraction, PendingWait, SessionId, ToolCallBlock,
   TurnLocation, WorkspaceId,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -576,6 +576,11 @@ export interface ComposerBarInjected {
    * Resolves admission: false = rejected/unmatched/transport failure.
    */
   command: ((line: string) => Promise<boolean>) | undefined
+  /**
+   * Load the active provider account balance through the Host; absent with
+   * the session (the meter then renders without a balance feed).
+   */
+  loadBalance: (() => Promise<HostBalance>) | undefined
   /**
    * Registrant hooks compartment: the renderer binds these to
    * useNotices/useLexicon (static absent sources without a session — hook

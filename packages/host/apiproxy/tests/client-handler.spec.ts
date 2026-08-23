@@ -78,6 +78,9 @@ function scriptedApi(overrides: {
       listDirectory: r => ok(r, { path: '/t', home: '/t', crumbs: [], entries: [], truncated: false }),
       createDirectory: r => ok(r, { path: '/t/new' }),
       openPath: r => ok(r, { opened: true as const }),
+      balance: r => ok(r, {
+        available: true, provider: 'test', model: 'test-model', currency: 'CNY', totalBalance: 1,
+      }),
       ...overrides.host,
     },
     workspace: {

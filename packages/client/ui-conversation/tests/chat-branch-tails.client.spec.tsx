@@ -1030,6 +1030,9 @@ describe('small branch tails', () => {
     }] as const
     const snap = { chat: chatSnapshotFixture({ nodes }), nodes }
     const source = { getSnapshot: () => snap, subscribe: () => () => {} }
+    // Deterministic billing tide: Sunday 2026-08-23 10:00 Beijing is all-day valley.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T10:00:00+08:00'))
     const view = render(
       <StatsLine
         t={t}
@@ -1039,6 +1042,6 @@ describe('small branch tails', () => {
           : undefined}
       />,
     )
-    expect(view.container.textContent).toBe('1 轮 · 1 步| 输入 0 tok · 输出 10 tok')
+    expect(view.container.textContent).toBe('谷| 1 轮 · 1 步| 输入 0 tok · 输出 10 tok')
   })
 })

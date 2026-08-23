@@ -170,6 +170,101 @@ export function billedInputTokens(usage: TokenUsageProjection): number {
   return usage.uncachedInputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
 }
 
+/** CNY price per 1M tokens for one billing bucket. */
+export interface MoneyRates {
+  /** Cache-read prompt tokens. */
+  inputCacheHit: number
+  /** Cache-miss prompt tokens (uncached input and cache writes). */
+  inputCacheMiss: number
+  /** Generated output tokens. */
+  output: number
+}
+
+/** Peak-hour CNY price per 1M tokens, keyed by provider then model. Off-peak = half (only DeepSeek has peak/off-peak today). */
+const PROVIDER_MODEL_PRICES: Record<string, Record<string, MoneyRates>> = {
+  'deepseek-official': {
+    'deepseek-v4-flash': { inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 },
+    'deepseek-v4-flash-vision-exp': { inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 },
+    'deepseek-v4-pro': { inputCacheHit: 0.3, inputCacheMiss: 9, output: 27 },
+  },
+}
+
+/** Fall back to this when the active provider/model has no pricing entry. */
+const DEFAULT_PRICE: MoneyRates = { inputCacheHit: 0.1, inputCacheMiss: 3, output: 9 }
+
+/**
+ * Whether `now` is a DeepSeek peak hour in Beijing time (UTC+8): 09:00–12:00,
+ * 14:00–18:00. Since 2026-08-23 weekends (Saturday/Sunday) are all-day
+ * off-peak — DeepSeek removed the weekday-only peak/valley split for
+ * weekends, which are now billed at the valley rate end to end.
+ * @param now - wall clock.
+ * @returns true only inside a weekday peak window.
+ */
+export function isDeepSeekPeak(now: Date): boolean {
+  const beijing = new Date(now.getTime() + 8 * 3_600_000)
+  const day = beijing.getUTCDay()
+  if (day === 0 || day === 6) return false
+  const h = beijing.getUTCHours()
+  return (h >= 9 && h < 12) || (h >= 14 && h < 18)
+}
+
+/**
+ * Current per-1M rates for the active provider/model, applying the DeepSeek
+ * peak/off-peak factor at `now`.
+ * @param now - wall clock.
+ * @param provider - active provider id.
+ * @param model - active model id.
+ * @returns the effective rates.
+ */
+export function tokenMoneyRates(
+  now: Date,
+  provider: string | undefined,
+  model: string | undefined,
+): MoneyRates {
+  const base = PROVIDER_MODEL_PRICES[provider ?? '']?.[model ?? ''] ?? DEFAULT_PRICE
+  const factor = provider === 'deepseek-official' && isDeepSeekPeak(now) ? 1 : provider === 'deepseek-official' ? 0.5 : 1
+  return {
+    inputCacheHit: base.inputCacheHit * factor,
+    inputCacheMiss: base.inputCacheMiss * factor,
+    output: base.output * factor,
+  }
+}
+
+/**
+ * Session billed-token cost, split by cache-hit / cache-miss / output pricing
+ * at `now` for the active model.
+ * @param usage - the session's token-usage projection value.
+ * @param now - wall clock.
+ * @param provider - active provider id.
+ * @param model - active model id.
+ * @returns the session cost in provider currency units.
+ */
+export function sessionCost(
+  usage: TokenUsageProjection,
+  now: Date,
+  provider: string | undefined,
+  model: string | undefined,
+): number {
+  const rates = tokenMoneyRates(now, provider, model)
+  const hit = (usage.cacheReadTokens ?? 0) / 1_000_000 * rates.inputCacheHit
+  const miss = ((usage.uncachedInputTokens ?? 0) + (usage.cacheWriteTokens ?? 0)) / 1_000_000 * rates.inputCacheMiss
+  const out = (usage.outputTokens ?? 0) / 1_000_000 * rates.output
+  return hit + miss + out
+}
+
+/** Map a provider currency code to a display symbol, defaulting to $. */
+export function currencySymbol(currency: string | undefined): string {
+  if (currency === 'CNY' || currency === 'RMB') return '¥'
+  if (currency === 'USD') return '$'
+  if (currency === undefined || currency === '') return '$'
+  return `${currency} `
+}
+
+/** Format a currency amount with its symbol and two decimals. */
+export function moneyText(currency: string | undefined, value: number | undefined): string {
+  return value === undefined ? '—' : `${currencySymbol(currency)}${value.toFixed(2)}`
+}
+
 interface ContextOccupancy {
   percent: number
   usedTokens: number
@@ -251,7 +346,11 @@ export const StatsLine = memo(function StatsLine({ useSession, useProjection, t 
       output: formatTokens(usage.outputTokens),
     }))
   }
-  const line = groups.join(' | ')
+  // The DeepSeek billing tide leads the line; weekends are all-day valley
+  // since 2026-08-23 (see isDeepSeekPeak).
+  const peak = isDeepSeekPeak(new Date())
+  const peakLabel = peak ? t('stats.peak') : t('stats.valley')
+  const line = [peakLabel, ...groups].join(' | ')
   // The row elides with ellipsis when overlong; a delayed hover tooltip carries
   // the full line, enabled only while content is actually clipped.
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -270,6 +369,8 @@ export const StatsLine = memo(function StatsLine({ useSession, useProjection, t 
   return (
     <Tooltip label={line} side="top" delayMs={500} disabled={!truncated}>
       <div ref={rootRef} className={css.root}>
+        <span style={peak ? { color: 'rgb(229,72,77)' } : { color: 'rgb(48,164,108)' }}>{peakLabel}</span>
+        <><span className={css.sep} aria-hidden>|</span>{' '}</>
         {groups.map((group, i) => (
           <Fragment key={group}>
             {i > 0 && <><span className={css.sep} aria-hidden>|</span>{' '}</>}

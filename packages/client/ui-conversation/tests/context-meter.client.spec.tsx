@@ -2,10 +2,11 @@
 // ContextMeter (composer trailing control): occupancy ring gating, the
 // click-open breakdown panel, and its close gestures.
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn, zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/index.ts'
+import type { HostBalance } from '@deepseek-ai/dsh-client-runtime/client'
 import { ContextMeter, type ContextMeterProps } from '../src/client/skeleton/ContextMeter.tsx'
 import css from '../src/client/skeleton/ContextMeter.module.css'
 import { en, zh } from '../src/client/locales.ts'
@@ -26,8 +27,12 @@ function projections(values: Record<string, unknown>): ContextMeterProps['usePro
   return (key: string) => values[key]
 }
 
-function meter(values: Record<string, unknown>, translate: ContextMeterProps['t'] = t) {
-  return render(<ContextMeter useProjection={projections(values)} t={translate} />)
+function meter(
+  values: Record<string, unknown>,
+  translate: ContextMeterProps['t'] = t,
+  loadBalance?: () => Promise<HostBalance>,
+) {
+  return render(<ContextMeter useProjection={projections(values)} t={translate} loadBalance={loadBalance} />)
 }
 
 describe('ContextMeter', () => {
@@ -117,19 +122,19 @@ describe('ContextMeter', () => {
       contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
       contextBreakdown: BREAKDOWN,
     }
-    const view = render(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
+    const view = render(<ContextMeter useProjection={(key: string) => values[key]} t={t} loadBalance={undefined} />)
     fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
     expect(view.container.querySelector('[role="dialog"]')).not.toBeNull()
 
     values = { contextPressure: { pressureTokens: 32_000 }, contextBreakdown: BREAKDOWN }
-    view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
+    view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} loadBalance={undefined} />)
     expect(view.container.textContent).toBe('')
 
     values = {
       contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
       contextBreakdown: BREAKDOWN,
     }
-    view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
+    view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} loadBalance={undefined} />)
     expect(view.getByRole('button', { name: '上下文已用 25%' }).getAttribute('aria-expanded')).toBe('false')
     expect(view.container.querySelector('[role="dialog"]')).toBeNull()
   })
@@ -154,5 +159,89 @@ describe('ContextMeter', () => {
     openPanel()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(view.container.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('loads the host balance and shows it with the session cost once the panel opens', async () => {
+    const loadBalance = vi.fn().mockResolvedValue({
+      available: true,
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+      currency: 'CNY',
+      totalBalance: 88.8,
+    })
+    const view = meter({
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+      tokenUsage: {
+        uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0,
+      },
+    }, t, loadBalance)
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    const panel = view.container.querySelector('[role="dialog"]')!
+    await waitFor(() => expect(panel.textContent).toContain('账户余额¥88.80'))
+    expect(panel.textContent).toContain('本会话已用')
+    expect(panel.textContent).toContain('¥')
+    expect(panel.textContent).toContain('1M tok')
+    expect(loadBalance).toHaveBeenCalled()
+  })
+
+  it('surfaces the balance failure message and keeps the fee row on the next poll', async () => {
+    const loadBalance = vi.fn()
+      .mockRejectedValueOnce(new Error('余额查询失败: 401'))
+      .mockResolvedValue({
+        available: true,
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-flash',
+        currency: 'CNY',
+        totalBalance: 1,
+      })
+    const view = meter({
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+      tokenUsage: {
+        uncachedInputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0,
+      },
+    }, t, loadBalance)
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    const panel = view.container.querySelector('[role="dialog"]')!
+    await waitFor(() => expect(panel.textContent).toContain('余额查询失败: 401'))
+    expect(panel.textContent).toContain('本会话已用')
+  })
+
+  it('shows an em dash for a failed load without a message', async () => {
+    const unavailable: HostBalance = { available: false }
+    const view = meter({
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+    }, t, async () => unavailable)
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    const panel = view.container.querySelector('[role="dialog"]')!
+    await waitFor(() => expect(panel.textContent).toContain('账户余额—'))
+    // The fee row only exists with billed activity.
+    expect(panel.textContent).not.toContain('本会话已用')
+  })
+
+  it('shows an ellipsis for the balance while no loader is mounted', () => {
+    const view = meter({ contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 } })
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    expect(view.container.querySelector('[role="dialog"]')!.textContent).toContain('账户余额…')
+  })
+
+  it('prefers the durable projection cost over the current-rate heuristic', async () => {
+    const view = meter({
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+      tokenUsage: {
+        uncachedInputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0,
+        outputTokens: 1_000_000, cost: 12.1,
+      },
+    }, t, async () => ({
+      available: true,
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+      currency: 'CNY',
+      totalBalance: 88.8,
+    }))
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    const panel = view.container.querySelector('[role="dialog"]')!
+    // The projection's per-request figure wins; the fallback heuristics never apply.
+    await waitFor(() => expect(panel.textContent).toContain('本会话已用¥12.10'))
+    expect(panel.textContent).toContain('¥88.80')
   })
 })
