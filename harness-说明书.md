@@ -82,7 +82,7 @@ python gateway.py                                      # 微信群聊 → harnes
 - 位置：`~/.dsh/.agent-presets/robot-assistant/`（源码副本在 `dsh-channel-im/presets/`）；
 - **边界**：无 Shell/无后台任务/无子代理/无网页搜索 → 不能执行命令、不能联网、不能操控电脑；仅：工作区文件读写 + 文件检索 + 技能 + 记忆压缩；
 - 人格要点：数字员工、中文、先结论、1–2 句、无表情、不暴露内部（不提工作区/目录/dingtalk-2）、不自称 AI 助手、不客服腔、不编造；
-- 桥接默认使用该预设（`DSH_AGENT_PRESET` 可覆盖；通道可配 `agentPreset` 单独指定）；
+- **IM 通道默认预设 = `qiuzhu`（前台接待·仅求助）**（`DSH_AGENT_PRESET` 可覆盖；通道可配 `agentPreset` 单独指定）；「机器人助手」仍可用（会话创建时选）——若通道默认需改回其它预设，改 `server.mjs` 的 `AGENT_PRESET` 或设置环境变量；
 - ⚠️ 修改预设的坑：**persona 文本每行必须缩进 6 空格**（顶格会被当新插件行 → `failed to mount`）；改完用 `agentPreset.list` 校验无 `broken`。
 
 ## 七、新设备 10 分钟上手（与本机功能一致）
@@ -114,6 +114,7 @@ python gateway.py                                      # 微信群聊 → harnes
 | 2026-08-23 | 仓库定位确认 | 功能与本机一致、**凭证零入库**（API Key/通道凭证/登录态由新设备重新配置，均有引导流程） |
 | 2026-08-23 | 新机自动补齐 | 仓库根 postinstall → auto-install.mjs（跨平台）：桥接/技能/预设自动装；官方npm版自动注入连接页/外部打开 |
 | 2026-08-23 | 一致性口径定稿 | 新设备=官方原版harness+插件(`-`仓库)=本机；插件=唯一扩展源；凭证/数据自理；企微/微信为待实现现状（两边一致） |
+| 2026-08-23 | IM 默认预设切换 | 桥接默认 `robot-assistant` → `qiuzhu`（前台接待·仅求助）；每通道可覆盖 |
 
 ## 九、维护规则（agent 必读，自动更新）
 
