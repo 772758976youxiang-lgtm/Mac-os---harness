@@ -43,7 +43,7 @@ IM 通道扩展（dsh-channel-im / server.mjs 桥接，管理 API 5175）
 | 端口 | 服务 |
 |---|---|
 | **3080** | DSH Host / GUI（浏览器访问；/api RPC；本机 trust） |
-| **5175** | 桥接管理 API（`GET/POST/DELETE /api/channels`） |
+| **5175** | 桥接管理 API（`GET/POST/DELETE /api/channels`；**`POST /api/send`** 主动发消息：机器人/数字人身份→指定用户） |
 | 8788 / 8789 | 企微 / 微信 演示台 |
 | 30001 | Windows 微信 hook 本机服务（仅 Windows） |
 
@@ -116,6 +116,7 @@ python gateway.py                                      # 微信群聊 → harnes
 | 2026-08-23 | 一致性口径定稿 | 新设备=官方原版harness+插件(`-`仓库)=本机；插件=唯一扩展源；凭证/数据自理；企微/微信为待实现现状（两边一致） |
 | 2026-08-23 | IM 默认预设切换 | 桥接默认 `robot-assistant` → `qiuzhu`（前台接待·仅求助）；每通道可覆盖 |
 | 2026-08-23 | 权限/时段 | 每通道支持 `allowed`（白名单=仅指定人可命令）+ `workHours`（08:00-24:00）；**白名单成员不受工作时段限制** |
+| 2026-08-23 | 主动发送工具 | 桥接 `POST /api/send`（机器人/数字人身份）+ 技能 `im-send`——任何流程/agent 可主动给用户发钉钉消息 |
 
 ## 九、维护规则（agent 必读，自动更新）
 
