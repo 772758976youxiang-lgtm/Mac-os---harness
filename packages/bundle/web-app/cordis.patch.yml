@@ -216,6 +216,11 @@
     - id: ui-attachment
       name: '@deepseek-ai/dsh-client-ui-attachment'
 
+    # Chat avatars: the conversation.avatar row seat (user disc + agent disc,
+    # click-to-change picker over the durable `avatar` settings namespace).
+    - id: ui-avatar
+      name: '@deepseek-ai/dsh-client-ui-avatar'
+
     # Tool call tree, generic fallback, and keyed business Tool views.
     - id: ui-tool
       name: '@deepseek-ai/dsh-client-ui-tool'

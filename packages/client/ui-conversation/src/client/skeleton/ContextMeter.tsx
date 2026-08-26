@@ -177,7 +177,7 @@ export function ContextMeter({ useProjection, t, loadBalance }: ContextMeterProp
             <div className={css.row}>
               <dt>{t('context.balance')}</dt>
               <dd>
-                {balance !== null && balance.available === true && balance.totalBalance !== undefined
+                {balance !== null && balance.available && balance.totalBalance !== undefined
                   ? moneyText(balance.currency, balance.totalBalance)
                   : balance !== null ? (balance.message ?? '—') : '…'}
               </dd>

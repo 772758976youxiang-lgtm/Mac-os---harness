@@ -246,9 +246,9 @@ export function sessionCost(
   model: string | undefined,
 ): number {
   const rates = tokenMoneyRates(now, provider, model)
-  const hit = (usage.cacheReadTokens ?? 0) / 1_000_000 * rates.inputCacheHit
-  const miss = ((usage.uncachedInputTokens ?? 0) + (usage.cacheWriteTokens ?? 0)) / 1_000_000 * rates.inputCacheMiss
-  const out = (usage.outputTokens ?? 0) / 1_000_000 * rates.output
+  const hit = usage.cacheReadTokens / 1_000_000 * rates.inputCacheHit
+  const miss = (usage.uncachedInputTokens + usage.cacheWriteTokens) / 1_000_000 * rates.inputCacheMiss
+  const out = usage.outputTokens / 1_000_000 * rates.output
   return hit + miss + out
 }
 

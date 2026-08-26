@@ -86,6 +86,7 @@ describe('assistant image slot handoff', () => {
         blocks={[{ kind: 'image', attachment }]}
         streaming={false}
         renderMessageImages={imageRenderer(calls)}
+        renderAvatar={() => null}
       />,
     )
     expect(view.getByTestId('message-images').getAttribute('data-align')).toBe('start')
@@ -106,6 +107,7 @@ describe('assistant image slot handoff', () => {
         ]}
         streaming={false}
         renderMessageImages={imageRenderer(calls)}
+        renderAvatar={() => null}
       />,
     )
     const galleries = view.getAllByTestId('message-images')
@@ -126,6 +128,7 @@ describe('assistant image slot handoff', () => {
         ]}
         streaming={false}
         renderMessageImages={imageRenderer(calls)}
+        renderAvatar={() => null}
       />,
     )
     const image = view.getByTestId('message-images')

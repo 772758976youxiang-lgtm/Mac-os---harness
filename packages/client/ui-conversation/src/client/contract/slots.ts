@@ -123,6 +123,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Optional renderer for one consecutive group of durable message images. */
     'conversation.message.images': { kind: 'single'; scope: 'session'; owner: MessageImagesOwnerProps }
     /**
+     * The row avatar seat: one disc per rendered side (user bubble, assistant
+     * narration), owner-routed by the row. Declared by the chat view entry
+     * (declaring is claiming); the avatar plugin registers the occupant and
+     * owns the picker. Session scope: the occupant reads the session id and
+     * the conversation snapshot through the standard kit.
+     */
+    'conversation.avatar': { kind: 'single'; scope: 'session'; owner: ConversationAvatarOwnerProps }
+    /**
      * The chat view's per-command row hole: keyed dispatch on the command
      * name (`command/run.name`; a run-less cross-window node has none and
      * always lands on the fallback). Declared by the chat view entry; the
@@ -424,7 +432,23 @@ export interface ChatNodeOwnerProps {
   /** Render a historical image group through the attachment slot. */
   renderMessageImages: RenderMessageImages
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
+  /** Render one side's avatar disc through the row avatar seat. */
+  renderAvatar: RenderAvatar
 }
+
+/** Which conversation side an avatar row addresses. */
+export type ConversationAvatarSide = 'user' | 'agent'
+
+/** Owner currency of the row avatar seat. */
+export interface ConversationAvatarOwnerProps {
+  /** The side the disc belongs to. */
+  side: ConversationAvatarSide
+  /** Disc edge in pixels; defaults to the row size when omitted. */
+  size?: number | undefined
+}
+
+/** Render one side's avatar disc (slot-bound; empty when unregistered). */
+export type RenderAvatar = (side: ConversationAvatarSide, size?: number) => ReactNode
 
 /** Full props of one registered keyed Chat business renderer. */
 export type ChatNodeViewProps<Kind extends ChatNodeKind = ChatNodeKind> =
@@ -792,7 +816,7 @@ export interface ChatViewInjected {
 /** Full chat-view component props: runtime & its Tool/command/tail render shares & store & injected & locale seat. */
 export type ChatViewSlotProps =
   PropsRuntime<'conversation.view'>
-  & PropsRenderSlots<'conversation.chat.node' | 'conversation.message.images'>
+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.message.images' | 'conversation.avatar'>
   & PropsStore<ChatStore> & ChatViewInjected & PropsLocale<'conversation'>
 
 /** Full props of the attachment plugin's composer entry. */

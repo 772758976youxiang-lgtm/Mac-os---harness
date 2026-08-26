@@ -5,16 +5,32 @@
 
 .root {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
   font-size: 16px;
   line-height: 28px;
   color: var(--dsw-alias-label-primary);
+}
+
+/* The agent avatar disc hugs the narration column's top edge; the seat
+   collapses to zero width when the avatar slot has no occupant, so the
+   narration keeps its current full-width geometry without the plugin. */
+.avatarSeat {
+  flex: none;
+  padding-top: 4px;
+}
+
+.avatarSeat:empty {
+  display: none;
 }
 
 .body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Wide markdown tables (the renderer's ≥4-column md-table-wide hook) span

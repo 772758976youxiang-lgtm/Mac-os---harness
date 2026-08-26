@@ -66,6 +66,7 @@ describe('render branch tails', () => {
         blocks={[{ kind: 'reasoning', text: 'done thinking' }, { kind: 'text', text: 'answer' }]}
         streaming
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     // reasoning at index 0 with a later block: running is false → ok state.
@@ -110,6 +111,7 @@ describe('render branch tails', () => {
         blocks={[{ kind: 'reasoning', text: 'still thinking' }]}
         streaming
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(view.container.querySelector('[data-state="running"]')).not.toBeNull()

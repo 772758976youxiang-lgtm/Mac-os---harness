@@ -47,6 +47,7 @@ describe('ReasoningRow', () => {
         blocks={[{ kind: 'reasoning', text: 'Inspect the session\nNewest reasoning tokens' }]}
         streaming
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(view.getByText('运行中')).toBeTruthy()
@@ -62,6 +63,7 @@ describe('ReasoningRow', () => {
         blocks={[{ kind: 'reasoning', text: 'Inspect the session\nNewest reasoning tokens keep arriving' }]}
         streaming
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(summary.scrollLeft).toBe(0)
@@ -77,6 +79,7 @@ describe('ReasoningRow', () => {
         blocks={[{ kind: 'reasoning', text: 'Inspect the session\nNewest reasoning tokens keep arriving\n' }]}
         streaming={false}
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     flushAnimationFrames(3)
@@ -93,6 +96,7 @@ describe('ReasoningRow', () => {
         blocks={[{ kind: 'reasoning', text: 'Inspect the session\nCheck persistence' }]}
         streaming={false}
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     const row = view.getByRole('button')
@@ -112,6 +116,7 @@ describe('ReasoningRow', () => {
         blocks={[{ kind: 'reasoning', text: 'Inspect the session\nCheck persistence' }]}
         streaming={false}
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     fireEvent.click(view.getByText('Think'))

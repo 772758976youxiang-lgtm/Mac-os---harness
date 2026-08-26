@@ -33,6 +33,7 @@ describe('tails', () => {
         ]}
         streaming
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(view.getByText('Think')).toBeTruthy()
@@ -45,6 +46,7 @@ describe('tails', () => {
         streaming={false}
         interrupted
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(stopped.getByText('已停止')).toBeTruthy()
@@ -59,11 +61,12 @@ describe('tails', () => {
         blocks={[{ kind: 'tool-call', callId: 'c', name: 'todo_write', argsRaw: '{}' }]}
         streaming={false}
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(empty.container.firstChild).toBeNull()
     const blank = render(
-      <AssistantMarkdown t={t} blocks={[]} streaming={false} renderMessageImages={renderMessageImages} />,
+      <AssistantMarkdown t={t} blocks={[]} streaming={false} renderMessageImages={renderMessageImages} renderAvatar={() => null} />,
     )
     expect(blank.container.firstChild).toBeNull()
   })

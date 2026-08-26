@@ -32,6 +32,8 @@ IM 通道扩展（dsh-channel-im / server.mjs 桥接，管理 API 5175）
 |---|---|
 | `deepseek-harness/` | **DSH 官方源码克隆**（本机私有镜像；`git pull` 可跟上游） |
 | `deepseek-harness/harness-说明书.md` | 本文 |
+| `deepseek-harness/packages/client/ui-avatar/` | **头像功能**：`conversation.avatar` 聊天行座位（用户/Agent 头像 + 点击更换），`avatar` 设置命名空间持久化（node 半区注册 schema） |
+| `deepseek-harness/scripts/sync-web-deploy.sh` | 把检出中的 Web 构建产物同步到运行部署（3080 即时生效；ui-avatar 行走用户 patch 热加载，勿在 bundle patch 重复加行） |
 | `dsh-channel-im`（插件仓库） | **扩展唯一来源**：`git@github.com:772758976youxiang-lgtm/-.git`（桥接/扫码/连接页原生/外部打开/技能×2/预设/微信网关），`dsh plugin install` 安装 |
 | `~/.dsh/` | 用户数据：技能、预设(`.agent-presets`)、工作区等 |
 | `~/.dsh-im-channels.json` | IM 通道配置（唯一事实源；桥接持有；凭证在内，注意保密） |
@@ -59,6 +61,8 @@ node ~/.dsh-channel-im/auth.mjs login   # 或插件包内 auth.mjs
 curl -s http://127.0.0.1:5175/api/channels
 # Windows 微信网关（Windows 机器）
 python gateway.py                                      # 微信群聊 → harness
+# 源码改动同步到运行中的 GUI（构建后执行；头像行走 ~/.dsh/profiles/web/cordis.patch.yml 热加载）
+bash deepseek-harness/scripts/sync-web-deploy.sh
 ```
 
 ## 五、IM 通道现状（2026-08-23）
@@ -117,6 +121,7 @@ python gateway.py                                      # 微信群聊 → harnes
 | 2026-08-23 | IM 默认预设切换 | 桥接默认 `robot-assistant` → `qiuzhu`（前台接待·仅求助）；每通道可覆盖 |
 | 2026-08-23 | 权限/时段 | 每通道支持 `allowed`（白名单=仅指定人可命令）+ `workHours`（08:00-24:00）；**白名单成员不受工作时段限制** |
 | 2026-08-23 | 主动发送工具 | 桥接 `POST /api/send`（机器人/数字人身份）+ 技能 `im-send`——任何流程/agent 可主动给用户发钉钉消息 |
+| 2026-08-27 | 会话头像功能 | 对话双方头像：用户头像可上传图片/选表情/恢复默认；每个 Agent 有确定性默认头像（会话 id 哈希色相 + 标题首字），点击头像即可更换；持久化于 settings `avatar` 命名空间（`user` + 按会话 `agents` 映射），96×96 PNG 压缩存储；行内座位 `conversation.avatar`（用户行右侧 / 助手行左侧） |
 
 ## 九、维护规则（agent 必读，自动更新）
 

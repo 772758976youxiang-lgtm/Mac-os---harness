@@ -10,7 +10,6 @@ interface ChatNodeSeatProps extends ChatNodeOwnerProps {
   readonly renderSlot: ChatViewSlotProps['renderSlot']
   readonly t: ChatViewSlotProps['t']
 }
-
 type RoutedChatNodeOwner = {
   [Kind in ChatNode['kind']]: ChatNodeOwnerProps & { readonly node: ChatNode<Kind> }
 }[ChatNode['kind']]
@@ -18,7 +17,7 @@ type RoutedChatNodeOwner = {
 /** Subscribe and dispatch one stable Context key without observing sibling Nodes. */
 export const ChatNodeSeat = memo(function ChatNodeSeat({
   nodeKey, selectedCallId, cwd, openFile, inspectCall, forkAt,
-  renderMessageImages, fileMentions, useSession, renderSlot, t,
+  renderMessageImages, renderAvatar, fileMentions, useSession, renderSlot, t,
 }: ChatNodeSeatProps) {
   const node = useSession(snapshot => snapshot.chat.nodes.get(nodeKey))
   const routedNode = node as ChatNode | undefined
@@ -31,9 +30,10 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
       inspectCall,
       forkAt,
       renderMessageImages,
+      renderAvatar,
       fileMentions,
     }, [
-    node, selectedCallId, cwd, openFile, inspectCall, forkAt, renderMessageImages, fileMentions,
+    node, selectedCallId, cwd, openFile, inspectCall, forkAt, renderMessageImages, renderAvatar, fileMentions,
   ])
   if (routedNode === undefined || owner === null) return null
   // Runtime dispatch owns the correlation: every Node's discriminant is the

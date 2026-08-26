@@ -68,7 +68,7 @@ function MessageItem({ node, t: translate, referenceLabels }: MessageItemProps) 
         ? { ...node, referenceLabels }
         : node,
   }
-  const props = { node: viewNode, t: translate, renderMessageImages } as ChatNodeViewProps
+  const props = { node: viewNode, t: translate, renderMessageImages, renderAvatar: () => null } as unknown as ChatNodeViewProps
   switch (node.kind) {
     case 'user':
     case 'steering':
@@ -1017,6 +1017,7 @@ describe('small branch tails', () => {
         blocks={[{ kind: 'reasoning', text: 'one-liner' }]}
         streaming={false}
         renderMessageImages={renderMessageImages}
+        renderAvatar={() => null}
       />,
     )
     expect(view.getByText('one-liner')).toBeTruthy()

@@ -8,6 +8,20 @@
   gap: 6px;
 }
 
+/* One message line: the bubble stack with the user avatar disc on its right
+   (chat convention: own messages carry the sender disc outward). The row is
+   full-width so the bubble stack's percentage cap keeps resolving against
+   the chat column, exactly as before the disc existed. */
+.userLine {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
 .userStack {
   display: flex;
   flex-direction: column;
